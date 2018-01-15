@@ -8,7 +8,6 @@
 
  You can find an example app in the /example folder
 */
-
 package tui
 
 import (
