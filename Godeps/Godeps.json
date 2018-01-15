@@ -1,0 +1,71 @@
+{
+	"ImportPath": "github.com/vtuson/tui",
+	"GoVersion": "go1.9",
+	"GodepVersion": "v79",
+	"Deps": [
+		{
+			"ImportPath": "github.com/gdamore/encoding",
+			"Rev": "b23993cbb6353f0e6aa98d0ee318a34728f628b9"
+		},
+		{
+			"ImportPath": "github.com/gdamore/tcell",
+			"Comment": "v1.0.0-5-g996a3f0",
+			"Rev": "996a3f0a689a361b7d5fffdca21dbd5ef0e2d2ac"
+		},
+		{
+			"ImportPath": "github.com/gdamore/tcell/encoding",
+			"Comment": "v1.0.0-5-g996a3f0",
+			"Rev": "996a3f0a689a361b7d5fffdca21dbd5ef0e2d2ac"
+		},
+		{
+			"ImportPath": "github.com/gdamore/tcell/terminfo",
+			"Comment": "v1.0.0-5-g996a3f0",
+			"Rev": "996a3f0a689a361b7d5fffdca21dbd5ef0e2d2ac"
+		},
+		{
+			"ImportPath": "github.com/lucasb-eyer/go-colorful",
+			"Rev": "231272389856c976b7500c4fffcc52ddf06ff4eb"
+		},
+		{
+			"ImportPath": "github.com/mattn/go-runewidth",
+			"Comment": "v0.0.2-3-g97311d9",
+			"Rev": "97311d9f7767e3d6f422ea06661bc2c7a19e8a5d"
+		},
+		{
+			"ImportPath": "golang.org/x/text/encoding",
+			"Rev": "88f656faf3f37f690df1a32515b479415e1a6769"
+		},
+		{
+			"ImportPath": "golang.org/x/text/encoding/charmap",
+			"Rev": "88f656faf3f37f690df1a32515b479415e1a6769"
+		},
+		{
+			"ImportPath": "golang.org/x/text/encoding/internal",
+			"Rev": "88f656faf3f37f690df1a32515b479415e1a6769"
+		},
+		{
+			"ImportPath": "golang.org/x/text/encoding/internal/identifier",
+			"Rev": "88f656faf3f37f690df1a32515b479415e1a6769"
+		},
+		{
+			"ImportPath": "golang.org/x/text/encoding/japanese",
+			"Rev": "88f656faf3f37f690df1a32515b479415e1a6769"
+		},
+		{
+			"ImportPath": "golang.org/x/text/encoding/korean",
+			"Rev": "88f656faf3f37f690df1a32515b479415e1a6769"
+		},
+		{
+			"ImportPath": "golang.org/x/text/encoding/simplifiedchinese",
+			"Rev": "88f656faf3f37f690df1a32515b479415e1a6769"
+		},
+		{
+			"ImportPath": "golang.org/x/text/encoding/traditionalchinese",
+			"Rev": "88f656faf3f37f690df1a32515b479415e1a6769"
+		},
+		{
+			"ImportPath": "golang.org/x/text/transform",
+			"Rev": "88f656faf3f37f690df1a32515b479415e1a6769"
+		}
+	]
+}
