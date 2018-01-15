@@ -1,3 +1,14 @@
+/* This is a Basic Implementation of a text ui that can be used to run CLI commands or you can define your own HandlerCommand to run Go functions
+  Basic Structure is:
+	Menu
+ 		[]Command
+ 			[]Args
+
+ By default a CLI command handler is provided that is able to pass parameters as flag, options or Enviroment variables
+
+ You can find an example app in the /example folder
+*/
+
 package tui
 
 import (
@@ -6,6 +17,11 @@ import (
 	"os"
 	"os/exec"
 )
+
+// Defines a basic Command object
+// HandlerCommand function can be defined custom, but if not defined the code defaults to an OSHandler that will
+// Execute the command path under Cli and pass the args as flags,envar or values
+// Optional is currently WIP
 
 type Command struct {
 	Title       string
@@ -23,6 +39,11 @@ type Command struct {
 	Status      string
 }
 
+//Argument can be a flag (IsFlag) or a Envar (if defined). If IsFalg is false the Name is passed without a - appended
+//IsBoolean means that the argument is passed with no additional value
+// flag bool: -foo
+// flag: -foo bar
+// noflag bool: foo
 type Argument struct {
 	Envar       string
 	Name        string
@@ -34,17 +55,21 @@ type Argument struct {
 	Valuebool   bool
 }
 
+//Top level menu description
+//Bottombar provides information to the user on how to exit the menu
+//All *Text have default english values but can be overwritten
+
 type Menu struct {
 	Title         string
 	Description   string
 	Commands      []Command
 	Cursor        int
 	BottomBar     bool
-	BottomBarText string
-	BackText      string
-	BoolText      string
-	ValueText     string
-	Wait          chan int
+	BottomBarText string   //text for default top menu
+	BackText      string   //text for back text on command
+	BoolText      string   //text when an arg is a bool
+	ValueText     string   //text when an arg is a value string
+	Wait          chan int //channel to wait completion
 	p             *Printing
 	breadCrum     string
 	argIndex      int
@@ -52,10 +77,12 @@ type Menu struct {
 	runeBuffer    []rune
 }
 
+//gets a breadcrum for a command
 func (c *Command) BreadCrum() string {
 	return c.breadCrum + " > " + c.Title
 }
 
+//gets a breadcrum for a menus
 func (m *Menu) BreadCrum() string {
 	path := ""
 	if m.breadCrum != "" {
@@ -64,6 +91,8 @@ func (m *Menu) BreadCrum() string {
 	return path + m.Title
 }
 
+// type def for a handler function, pass a command and a channel to return screen stdout, channel will be close when
+// execution is completed
 type HandlerCommand func(c *Command, screen chan string)
 
 func (m *Menu) SelectToggle() {
@@ -90,6 +119,8 @@ func (m *Menu) printPageHearder(title string, desc string) {
 	}
 }
 
+//OS execution default handler
+//Error in command is updated in completion
 func OSCmdHandler(c *Command, ch chan string) {
 	formattedArgs := []string{"test"}
 	c.Error = nil
@@ -146,6 +177,7 @@ func OSCmdHandler(c *Command, ch chan string) {
 	c.Error = cmd.Wait()
 }
 
+//Run commands and waits to complete, then calls menu ShowResult
 func (m *Menu) RunCommand(c *Command) {
 	if c.Execute == nil {
 		c.Execute = OSCmdHandler
@@ -162,6 +194,8 @@ func (m *Menu) RunCommand(c *Command) {
 	pb.Stop()
 	m.ShowResult(c)
 }
+
+//Displays result of running a command, using test Fail and Success, plus adds error message for Fail
 func (m *Menu) ShowResult(c *Command) {
 	m.enableScape = true
 
@@ -178,12 +212,15 @@ func (m *Menu) ShowResult(c *Command) {
 	m.p.Show()
 
 }
-func (m *Menu) NextCommand() {
+
+//Moves menu to the Next Argument in a Command
+func (m *Menu) NextArgument() {
 	m.argIndex++
 	m.runeBuffer = []rune{}
 	m.ShowCommand()
 }
 
+//Displays a command in the screen as incated by Cursor in Menu
 func (m *Menu) ShowCommand() {
 	if m.Cursor >= len(m.Commands) {
 		fmt.Println("Cursor exceed array")
@@ -219,6 +256,7 @@ func (m *Menu) ShowCommand() {
 
 }
 
+//Show Menu
 func (m *Menu) Show() {
 	m.p.Clear()
 	m.printPageHearder(m.BreadCrum(), m.Description)
@@ -255,10 +293,12 @@ func (m *Menu) CurrentCommand() *Command {
 
 }
 
+//Leaves a menu
 func (m *Menu) Quit() {
 	m.p.s.Fini()
 }
 
+//Moves to the next command in a list
 func (m *Menu) Next() {
 	if m.Cursor < len(m.Commands)-1 {
 		m.Cursor++
@@ -268,6 +308,8 @@ func (m *Menu) Next() {
 	m.p.Clear()
 	m.Show()
 }
+
+//Moves back to the prev command
 func (m *Menu) Prev() {
 	if m.Cursor > 0 {
 		m.Cursor--
@@ -278,6 +320,7 @@ func (m *Menu) Prev() {
 	m.Show()
 }
 
+//Returns an initialised default Menu
 func NewMenu(style *Style) *Menu {
 	channel := make(chan int)
 	s, e := tcell.NewScreen()
@@ -298,6 +341,7 @@ func NewMenu(style *Style) *Menu {
 	}
 }
 
+//Handles key events for commnands
 func (menu *Menu) EventCommandManager() {
 	for {
 		ev := menu.p.Screen().PollEvent()
@@ -318,7 +362,7 @@ func (menu *Menu) EventCommandManager() {
 			case tcell.KeyEnter:
 				if arg != nil && !arg.IsBoolean {
 					arg.Value = string(menu.runeBuffer)
-					menu.NextCommand()
+					menu.NextArgument()
 				}
 			case tcell.KeyCtrlL:
 				menu.p.Sync()
@@ -332,12 +376,12 @@ func (menu *Menu) EventCommandManager() {
 				if arg != nil && arg.IsBoolean {
 					if ev.Rune() == 'y' || ev.Rune() == 'Y' {
 						arg.Valuebool = true
-						menu.NextCommand()
+						menu.NextArgument()
 						break
 					}
 					if ev.Rune() == 'N' || ev.Rune() == 'n' {
 						arg.Valuebool = false
-						menu.NextCommand()
+						menu.NextArgument()
 						break
 					}
 				} else {
@@ -353,6 +397,7 @@ func (menu *Menu) EventCommandManager() {
 	}
 }
 
+//Handles Key events for Menu
 func (menu *Menu) EventManager() {
 	for {
 		ev := menu.p.Screen().PollEvent()

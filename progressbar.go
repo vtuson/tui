@@ -28,7 +28,7 @@ func (p *ProgressBar) Start() {
 		if i >= len(bar) {
 			i = 0
 		}
-		p.p.putc(styleBitnamiTextHighlight, x/2, y/2, bar[i])
+		p.p.putc(styleTextHighlight, x/2, y/2, bar[i])
 		p.p.Show()
 		i++
 		_, ok = <-ticker.C
