@@ -13,4 +13,6 @@ Basic Structure is:
  ----[]Args
  
  By default a CLI command handler is provided that is able to pass parameters as flag, options or Enviroment variables
- You can find an example app in the /example folder
+ You can find an example app in the /sampleapp folder
+ 
+ ![screenshot](./sampleapp/screenshot.png)
