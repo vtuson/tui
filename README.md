@@ -2,7 +2,7 @@
 [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/vtuson/tui)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/vtuson/tui/blob/master/LICENSE)
 
-This is a Basic Implementation of a text ui that can be used to run CLI commands or you can define your own HandlerCommand to run Go functions
+This is a Basic Implementation of a text ui D.O.S style, that can be used to run CLI commands or you can define your own HandlerCommand to run Go functions
 
 Basic Structure is:
 
