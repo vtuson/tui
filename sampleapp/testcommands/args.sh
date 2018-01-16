@@ -2,7 +2,7 @@
 
 if [ "$#" -ne 5 ]; then
     echo "Illegal number of parameters"
-    echo $@> ./testcommands/tmp
+    echo $@> ./tmp
     exit 1
 fi
-echo $@> ./testcommands/tmp
+echo $@> ./tmp
