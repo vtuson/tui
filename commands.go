@@ -17,6 +17,7 @@ import (
 	"github.com/gdamore/tcell"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 // Defines a basic Command object
@@ -38,6 +39,8 @@ type Command struct {
 	breadCrum   string
 	Disable     bool
 	Status      string
+	bufferOut   []string
+	PrintOut    bool
 }
 
 //Argument can be a flag (IsFlag) or a Envar (if defined). If IsFalg is false the Name is passed without a - appended
@@ -183,6 +186,9 @@ func (m *Menu) RunCommand(c *Command) {
 	if c.Execute == nil {
 		c.Execute = OSCmdHandler
 	}
+	if c.PrintOut {
+		c.bufferOut = []string{}
+	}
 	ch := make(chan string)
 	go c.Execute(c, ch)
 
@@ -190,7 +196,11 @@ func (m *Menu) RunCommand(c *Command) {
 	go pb.Start()
 
 	for ok := true; ok; {
-		_, ok = <-ch
+		var b string
+		b, ok = <-ch
+		if ok {
+			c.bufferOut = append(c.bufferOut, b)
+		}
 	}
 	pb.Stop()
 	m.ShowResult(c)
@@ -207,6 +217,16 @@ func (m *Menu) ShowResult(c *Command) {
 		m.p.Clear()
 		m.printPageHearder(c.BreadCrum(), "Success! "+c.Success)
 	}
+
+	if c.PrintOut {
+		tmpOut := strings.Join(c.bufferOut, "")
+		tmpOut = strings.Replace(tmpOut, "\r", "\n", -1)
+		output := strings.Split(tmpOut, "\n")
+		for _, l := range output {
+			m.p.Putln(l, false)
+		}
+	}
+
 	if m.BottomBar {
 		m.p.BottomBar(m.BackText)
 	}

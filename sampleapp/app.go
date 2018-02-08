@@ -15,6 +15,7 @@ func NewTestMenu() *tui.Menu {
 			Cli:         "./testcommands/waitok.sh",
 			Description: "test of running a tui.Command with out arguments",
 			Success:     "Yey it works",
+			PrintOut:    true,
 		},
 		tui.Command{
 			Title:       "Commmand Failing",
