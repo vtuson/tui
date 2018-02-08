@@ -126,8 +126,10 @@ func (m *Menu) printPageHearder(title string, desc string) {
 //OS execution default handler
 //Error in command is updated in completion
 func OSCmdHandler(c *Command, ch chan string) {
-	formattedArgs := []string{"test"}
+	formattedArgs := []string{}
 	c.Error = nil
+	cliArray := strings.Split(c.Cli, " ")
+	formattedArgs = cliArray[1:]
 
 	defer close(ch)
 	for _, a := range c.Args {
@@ -158,7 +160,7 @@ func OSCmdHandler(c *Command, ch chan string) {
 		}
 	}
 
-	cmd := exec.Command(c.Cli, formattedArgs...)
+	cmd := exec.Command(cliArray[0], formattedArgs...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		c.Error = err
