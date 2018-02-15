@@ -140,9 +140,11 @@ import (
 	"errors"
 )
 
-//This is the customer handler c is the command object for the command to be excuted. 
+//This is the customer handler 
+//c is the command object for the command to be executed. 
 //ch is the channel that can be used to return text to be displayed back to the user.
-//The hadnler is excuted async from the main program, so you must close the channel when completed or the menu will hang 
+//The hadnler is executed async from the main program,
+//so you must close the channel when completed or the menu will hang 
 //waiting for your command to complete.
 
 func CustomHandler(c *tui.Command, ch chan string) {
