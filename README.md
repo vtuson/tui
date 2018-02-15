@@ -128,4 +128,56 @@ func main() {
 [Arguments](https://godoc.org/github.com/vtuson/tui#Argument) can also be boolean flags, they can have a name (which can be passed as input to the command) or can be set as environment variables.
 
 ### Adding your own handler
+The library assumes that the command is an OS command to be executed using the provided OSCmdHandler function if the Execute is nil. If another handler is passed by setting the Excute value, then it will be called when the users selects that command.
 
+Here is a simple echo example:
+
+``` go
+package main
+
+import (
+	"github.com/vtuson/tui"
+	"errors"
+)
+
+//This is the customer handler c is the command object for the command to be excuted. 
+//ch is the channel that can be used to return text to be displayed back to the user.
+//The hadnler is excuted async from the main program, so you must close the channel when completed or the menu will hang 
+//waiting for your command to complete.
+
+func CustomHandler(c *tui.Command, ch chan string) {
+	//defer close to make sure when you exit the menu knows to continue giving user the output
+	defer close(ch)
+	for _, a := range c.Args {
+		ch <- a.Value
+	}
+	//if you want the command to fail set Error in the command variable
+	c.Error=errors.New("It failed!")
+}
+
+func main() {
+	menu := tui.NewMenu(tui.DefaultStyle())
+	menu.Title = "Test"
+	menu.Description = "Test app"
+
+	menu.Commands = []tui.Command{
+		tui.Command{
+			Execute:     CustomHandler,
+			Title:       "Args CLI",
+			Cli:         "echo",
+			PrintOut:    true,
+			Description: "test of running a tui.Command with arguments",
+			Args: []tui.Argument{
+				tui.Argument{
+					Title: "Please say hi",
+				},
+			},
+		},
+	}
+
+	menu.Show()
+	go menu.EventManager()
+	<-menu.Wait
+	menu.Quit()
+}
+```
