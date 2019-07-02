@@ -6,6 +6,7 @@ import (
 	"github.com/gdamore/tcell/encoding"
 	"github.com/mattn/go-runewidth"
 	"os"
+  "strings"
 )
 
 var styleText = tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.Color17).Bold(true)
@@ -105,18 +106,22 @@ func (p *Printing) Return() {
 
 //adds a ln with a return at the end. hightlight uses the highlight style for the full line text
 func (p *Printing) Putln(str string, highlight bool) {
-	if highlight {
-		p.Cursor = p.puts(p.style.Hightlight, p.style.Indent, p.Cursor, str)
-	} else {
-		p.Cursor = p.puts(p.style.Default, p.style.Indent, p.Cursor, str)
-	}
-	p.Cursor++
+  for _, line := range strings.Split(str,"\n") {
+    if highlight {
+      p.Cursor = p.puts(p.style.Hightlight, p.style.Indent, p.Cursor, line)
+    } else {
+      p.Cursor = p.puts(p.style.Default, p.style.Indent, p.Cursor, line)
+    }
+    p.Cursor++
+  }
 }
 
 //add a line disabled style
 func (p *Printing) PutlnDisable(str string) {
-	p.Cursor = p.puts(p.style.Disable, p.style.Indent, p.Cursor, str)
-	p.Cursor++
+  for _, line := range strings.Split(str,"\n") {
+    p.Cursor = p.puts(p.style.Disable, p.style.Indent, p.Cursor, line)
+    p.Cursor++
+  }
 }
 
 //same as Putln but continues on x

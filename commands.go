@@ -2,8 +2,8 @@
 // or you can define your own HandlerCommand to run Go functions
 // Basic Structure is:
 // Menu
-//    []Command
-//         []Args
+//    []Option
+//      - SubOptions or Command
 //
 // By default a CLI command handler is provided that is able to pass parameters as flag,
 // options or Enviroment variables
@@ -20,14 +20,18 @@ import (
 	"strings"
 )
 
+var arrayMenu []Menu
+
+// TODO
 // Defines a basic Command object
 // HandlerCommand function can be defined custom, but if not defined the code defaults to an OSHandler that will
 // Execute the command path under Cli and pass the args as flags,envar or values
 // Optional is currently WIP
 
-type Command struct {
+type Option struct {
 	Title       string
 	Description string
+  SubOptions  []Option
 	Cli         string
 	Execute     HandlerCommand
 	Args        []Argument
@@ -41,8 +45,10 @@ type Command struct {
 	Status      string
 	bufferOut   []string
 	PrintOut    bool
+	External    bool
 }
 
+//TODO
 //Argument can be a flag (IsFlag) or a Envar (if defined). If IsFalg is false the Name is passed without a - appended
 //IsBoolean means that the argument is passed with no additional value
 // flag bool: -foo
@@ -51,12 +57,12 @@ type Command struct {
 type Argument struct {
 	Envar       string
 	Name        string
-	IsFlag      bool
 	Title       string
 	Description string
-	Value       string
+	Value       []string
 	IsBoolean   bool
 	Valuebool   bool
+  Multiple    bool
 }
 
 //Top level menu description
@@ -66,13 +72,14 @@ type Argument struct {
 type Menu struct {
 	Title         string
 	Description   string
-	Commands      []Command
+	Options       []Option
 	Cursor        int
 	BottomBar     bool
 	BottomBarText string   //text for default top menu
 	BackText      string   //text for back text on command
 	BoolText      string   //text when an arg is a bool
 	ValueText     string   //text when an arg is a value string
+	ValueTextMultiple string   //text when an arg is a value string and accept multiple values
 	Wait          chan int //channel to wait completion
 	p             *Printing
 	breadCrum     string
@@ -82,8 +89,8 @@ type Menu struct {
 }
 
 //gets a breadcrum for a command
-func (c *Command) BreadCrum() string {
-	return c.breadCrum + " > " + c.Title
+func (o *Option) BreadCrum(m Menu) string {
+	return m.BreadCrum() + " > " + o.Title
 }
 
 //gets a breadcrum for a menus
@@ -97,21 +104,21 @@ func (m *Menu) BreadCrum() string {
 
 // type def for a handler function, pass a command and a channel to return screen stdout, channel will be close when
 // execution is completed
-type HandlerCommand func(c *Command, screen chan string)
+type HandlerCommand func(o *Option, screen chan string)
 
 func (m *Menu) SelectToggle() {
-	if m.Cursor < len(m.Commands) {
-		m.Commands[m.Cursor].Selected = !m.Commands[m.Cursor].Selected
+	if m.Cursor < len(m.Options) {
+		m.Options[m.Cursor].Selected = !m.Options[m.Cursor].Selected
 	}
 }
 func (m *Menu) IsToggle() bool {
-	if m.Cursor < len(m.Commands) {
-		return m.Commands[m.Cursor].Optional
+	if m.Cursor < len(m.Options) {
+		return m.Options[m.Cursor].Optional
 	}
 	return false
 }
 
-func (m *Menu) printPageHearder(title string, desc string) {
+func (m *Menu) printPageHeader(title string, desc string) {
 	if title != "" {
 		m.p.Putln(title, true)
 		m.p.Return()
@@ -125,14 +132,14 @@ func (m *Menu) printPageHearder(title string, desc string) {
 
 //OS execution default handler
 //Error in command is updated in completion
-func OSCmdHandler(c *Command, ch chan string) {
+func OSCmdHandler(o *Option, ch chan string) {
 	formattedArgs := []string{}
-	c.Error = nil
-	cliArray := strings.Split(c.Cli, " ")
+	o.Error = nil
+	cliArray := strings.Split(o.Cli, " ")
 	formattedArgs = cliArray[1:]
 
 	defer close(ch)
-	for _, a := range c.Args {
+	for _, a := range o.Args {
 		if a.Envar != "" {
 			if a.IsBoolean {
 				if a.Valuebool {
@@ -141,33 +148,31 @@ func OSCmdHandler(c *Command, ch chan string) {
 					os.Unsetenv(a.Envar)
 				}
 			} else {
-				os.Setenv(a.Envar, a.Value)
+				os.Setenv(a.Envar, a.Value[0])
 			}
 			continue
 		}
 		if a.IsBoolean {
 			if a.Valuebool {
-				if a.IsFlag {
-					formattedArgs = append(formattedArgs, "-"+a.Name)
-				} else {
-					formattedArgs = append(formattedArgs, a.Name)
-				}
+        formattedArgs = append(formattedArgs, a.Name)
 			} else {
 				continue
 			}
 		} else {
-			formattedArgs = append(formattedArgs, "-"+a.Name, a.Value)
+      for _, argumentValue := range a.Value {
+        formattedArgs = append(formattedArgs, a.Name, argumentValue)
+      }
 		}
 	}
 
 	cmd := exec.Command(cliArray[0], formattedArgs...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		c.Error = err
+		o.Error = err
 		return
 	}
-	c.Error = cmd.Start()
-	if c.Error != nil {
+	o.Error = cmd.Start()
+	if o.Error != nil {
 		return
 	}
 	end := false
@@ -180,19 +185,23 @@ func OSCmdHandler(c *Command, ch chan string) {
 		}
 	}
 
-	c.Error = cmd.Wait()
+	o.Error = cmd.Wait()
 }
 
 //Run commands and waits to complete, then calls menu ShowResult
-func (m *Menu) RunCommand(c *Command) {
-	if c.Execute == nil {
-		c.Execute = OSCmdHandler
+func (m *Menu) RunCommand(o *Option) {
+	if o.External {
+    close(menu.Wait)
+    return
 	}
-	if c.PrintOut {
-		c.bufferOut = []string{}
+	if o.Execute == nil {
+		o.Execute = OSCmdHandler
+	}
+	if o.PrintOut {
+		o.bufferOut = []string{}
 	}
 	ch := make(chan string)
-	go c.Execute(c, ch)
+	go o.Execute(o, ch)
 
 	pb := NewProgressBar(m.p)
 	go pb.Start()
@@ -201,27 +210,26 @@ func (m *Menu) RunCommand(c *Command) {
 		var b string
 		b, ok = <-ch
 		if ok {
-			c.bufferOut = append(c.bufferOut, b)
+			o.bufferOut = append(o.bufferOut, b)
 		}
 	}
 	pb.Stop()
-	m.ShowResult(c)
+	m.ShowResult(o)
 }
 
 //Displays result of running a command, using test Fail and Success, plus adds error message for Fail
-func (m *Menu) ShowResult(c *Command) {
-	m.enableScape = true
+func (m *Menu) ShowResult(o *Option) {
 
-	if c.Error != nil {
+	if o.Error != nil {
 		m.p.Clear()
-		m.printPageHearder(c.BreadCrum(), c.Fail+" Error ocurred:"+c.Error.Error())
+		m.printPageHeader(o.BreadCrum(*m), o.Fail+" Error ocurred:"+o.Error.Error())
 	} else {
 		m.p.Clear()
-		m.printPageHearder(c.BreadCrum(), "Success! "+c.Success)
+		m.printPageHeader(o.BreadCrum(*m), o.Success)
 	}
 
-	if c.PrintOut {
-		tmpOut := strings.Join(c.bufferOut, "")
+	if o.PrintOut {
+		tmpOut := strings.Join(o.bufferOut, "")
 		tmpOut = strings.Replace(tmpOut, "\r", "\n", -1)
 		output := strings.Split(tmpOut, "\n")
 		for _, l := range output {
@@ -240,76 +248,89 @@ func (m *Menu) ShowResult(c *Command) {
 func (m *Menu) NextArgument() {
 	m.argIndex++
 	m.runeBuffer = []rune{}
-	m.ShowCommand()
+	m.ShowOption()
 }
 
 //Displays a command in the screen as incated by Cursor in Menu
-func (m *Menu) ShowCommand() {
-	if m.Cursor >= len(m.Commands) {
+func (m *Menu) ShowOption() {
+	if m.Cursor >= len(m.Options) {
 		fmt.Println("Cursor exceed array")
 		return
 	}
-	c := m.Commands[m.Cursor]
+	o := m.Options[m.Cursor]
 	m.p.Clear()
 
-	runNow := (c.Args == nil || len(c.Args) == 0 || m.argIndex >= len(c.Args))
+  hasSubmenu := o.SubOptions != nil && len(o.SubOptions) > 0
+	runCommandNow := (o.Args == nil || len(o.Args) == 0 || m.argIndex >= len(o.Args))
 
-	c.breadCrum = m.BreadCrum()
-	if !runNow {
-		m.printPageHearder(c.BreadCrum()+" > "+c.Args[m.argIndex].Name, c.Description)
-		m.p.Putln(c.Args[m.argIndex].Title+":", false)
-		m.p.Putln(c.Args[m.argIndex].Description, false)
-		if c.Args[m.argIndex].IsBoolean {
+  if hasSubmenu {
+    arrayMenu = append(arrayMenu, *m)
+    m.Title = fmt.Sprintf("%s > %s", m.Title, o.Title)
+    m.Description = o.Description
+    m.Options = o.SubOptions
+		m.enableScape = true
+		m.Cursor = 0
+    m.PrintMenu()
+    go m.EventManager()
+  } else if !runCommandNow {
+		m.printPageHeader(o.BreadCrum(*m)+" > "+o.Args[m.argIndex].Name, o.Description)
+		m.p.Putln(o.Args[m.argIndex].Title+":", false)
+		m.p.Putln(o.Args[m.argIndex].Description, false)
+		if o.Args[m.argIndex].IsBoolean {
 			m.p.BottomBar(m.BoolText)
 		} else {
-			m.p.BottomBar(m.ValueText)
+      if o.Args[m.argIndex].Multiple {
+        m.p.BottomBar(m.ValueTextMultiple)
+      } else {
+        m.p.BottomBar(m.ValueText)
+      }
 			m.p.PutEcho(string([]rune{tcell.RuneBlock}), m.p.style.Input)
 		}
+  } else {
+		m.printPageHeader(o.BreadCrum(*m), o.Description)
+  }
 
-	} else {
-		m.enableScape = false
-		m.printPageHearder(c.BreadCrum(), c.Description)
-	}
-
-	m.p.Show()
-
-	if runNow {
-		m.RunCommand(&c)
-	}
-
+  if !hasSubmenu {
+    m.p.Show()
+    if runCommandNow {m.RunCommand(&o)}
+  }
 }
 
 //Show Menu
-func (m *Menu) Show() {
+func (m *Menu) PrintMenu() {
 	m.p.Clear()
-	m.printPageHearder(m.BreadCrum(), m.Description)
-	for i, c := range m.Commands {
-		title := c.Title
-		if c.Optional {
+	m.printPageHeader(m.BreadCrum(), m.Description)
+	for i, o := range m.Options {
+		title := o.Title
+		if o.Optional {
 			check := "[ ]"
-			if c.Selected {
+			if o.Selected {
 				check = "[x]"
 			}
 			title = check + " " + title
 		}
 		status := ""
-		if c.Status != "" {
-			status = " [" + c.Status + "]"
+		if o.Status != "" {
+			status = " [" + o.Status + "]"
 		}
-		if c.Disable && i != m.Cursor {
+		if o.Disable && i != m.Cursor {
 			m.p.PutlnDisable(title + status)
 			continue
 		}
 		m.p.Putln(title+status, i == m.Cursor)
 	}
 	if m.BottomBar {
-		m.p.BottomBar(m.BottomBarText)
+    if m.enableScape {
+      m.p.BottomBar(m.BackText)
+    } else {
+      m.p.BottomBar(m.BottomBarText)
+    }
 	}
 	m.p.Show()
 }
-func (m *Menu) CurrentCommand() *Command {
-	if m.Cursor < len(m.Commands) {
-		return &m.Commands[m.Cursor]
+func (m *Menu) CurrentOption() *Option {
+	if m.Cursor < len(m.Options) {
+		return &m.Options[m.Cursor]
 	} else {
 		return nil
 	}
@@ -323,13 +344,13 @@ func (m *Menu) Quit() {
 
 //Moves to the next command in a list
 func (m *Menu) Next() {
-	if m.Cursor < len(m.Commands)-1 {
+	if m.Cursor < len(m.Options)-1 {
 		m.Cursor++
 	} else {
 		m.Cursor = 0
 	}
 	m.p.Clear()
-	m.Show()
+	m.PrintMenu()
 }
 
 //Moves back to the prev command
@@ -337,10 +358,10 @@ func (m *Menu) Prev() {
 	if m.Cursor > 0 {
 		m.Cursor--
 	} else {
-		m.Cursor = len(m.Commands) - 1
+		m.Cursor = len(m.Options) - 1
 	}
 	m.p.Clear()
-	m.Show()
+	m.PrintMenu()
 }
 
 //Returns an initialised default Menu
@@ -356,8 +377,9 @@ func NewMenu(style *Style) *Menu {
 		BottomBar:     true,
 		BottomBarText: "Press ESC to exit",
 		BackText:      "Press ESC to go back",
-		BoolText:      "Press Y for yes or N for No, ESC to Cancel",
-		ValueText:     "Type your answer and press ENTER to continue, or ESC to Cancel",
+		BoolText:      "Press Y for yes or N for No, ESC to cancel",
+		ValueText:     "Type your answer and press ENTER to continue, or ESC to cancel",
+		ValueTextMultiple: "Type your answer and press ENTER to continue, or ESC to cancel. Set an empty string to stop adding values",
 		Wait:          channel,
 		p:             p,
 		runeBuffer:    []rune{},
@@ -368,29 +390,42 @@ func NewMenu(style *Style) *Menu {
 func (menu *Menu) EventCommandManager() {
 	for {
 		ev := menu.p.Screen().PollEvent()
-		cmd := menu.CurrentCommand()
+		o := menu.CurrentOption()
 		var arg *Argument
-		if cmd != nil && menu.argIndex < len(cmd.Args) {
-			arg = &cmd.Args[menu.argIndex]
+		if o != nil && menu.argIndex < len(o.Args) {
+			arg = &o.Args[menu.argIndex]
 		}
 		switch ev := ev.(type) {
 		case *tcell.EventKey:
 			switch ev.Key() {
 			case tcell.KeyEscape:
-				if menu.enableScape {
-					menu.Show()
-					go menu.EventManager()
-					return
-				}
+        menu.PrintMenu()
+        go menu.EventManager()
+        return
 			case tcell.KeyEnter:
 				if arg != nil && !arg.IsBoolean {
-					arg.Value = string(menu.runeBuffer)
-					menu.NextArgument()
+          userInput := string(menu.runeBuffer)
+          if userInput == "" {
+            if arg.Multiple && len(arg.Value) > 0 {
+              menu.NextArgument()
+            } else {
+              menu.runeBuffer = []rune{}
+              menu.ShowOption()
+            }
+          } else {
+            arg.Value = append(arg.Value, userInput)
+            if arg.Multiple {
+              menu.runeBuffer = []rune{}
+              menu.ShowOption()
+            } else {
+              menu.NextArgument()
+            }
+          }
 				}
 			case tcell.KeyCtrlL:
 				menu.p.Sync()
 			case tcell.KeyBackspace, tcell.KeyBackspace2:
-				if arg != nil && !arg.IsBoolean {
+				if arg != nil && !arg.IsBoolean && len(menu.runeBuffer) > 0 {
 					menu.runeBuffer = menu.runeBuffer[:len(menu.runeBuffer)-1]
 					menu.p.PutEcho(string(append(menu.runeBuffer, tcell.RuneBlock)), menu.p.style.Input)
 					menu.p.Show()
@@ -428,11 +463,18 @@ func (menu *Menu) EventManager() {
 		case *tcell.EventKey:
 			switch ev.Key() {
 			case tcell.KeyEscape:
-				close(menu.Wait)
+        if menu.enableScape {
+          *menu, arrayMenu = arrayMenu[len(arrayMenu)-1], arrayMenu[:len(arrayMenu)-1]
+          menu.argIndex = 0
+          menu.PrintMenu()
+          go menu.EventManager()
+        } else {
+          close(menu.Wait)
+        }
 				return
 			case tcell.KeyEnter:
-				cmd := menu.CurrentCommand()
-				if cmd != nil && cmd.Disable {
+				o := menu.CurrentOption()
+				if o != nil && o.Disable {
 					continue
 				}
 				if menu.IsToggle() {
@@ -440,9 +482,10 @@ func (menu *Menu) EventManager() {
 					continue
 				}
 				menu.argIndex = 0
-				menu.enableScape = true
-				menu.ShowCommand()
-				go menu.EventCommandManager()
+				menu.ShowOption()
+        if o.SubOptions == nil || len(o.SubOptions) == 0 {
+          go menu.EventCommandManager()
+        } 
 				return
 
 			case tcell.KeyCtrlL:
